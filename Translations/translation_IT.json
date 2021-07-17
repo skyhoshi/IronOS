@@ -42,20 +42,21 @@
 		],
 		"LockingKeysString": "Blocc.",
 		"UnlockingKeysString": "Sblocc.",
-		"WarningKeysLockedString": "BLOCCATO"
+		"WarningKeysLockedString": "BLOCCATO",
+		"WarningThermalRunaway":["Thermal","Runaway"]
 	},
 	"characters": {
 		"SettingRightChar": "D",
 		"SettingLeftChar": "S",
 		"SettingAutoChar": "A",
-		"SettingFastChar": "V",
+		"SettingOffChar": "O",
 		"SettingSlowChar": "L",
 		"SettingMediumChar": "M",
-		"SettingOffChar": "O",
+		"SettingFastChar": "V",
+		"SettingStartNoneChar": "D",
 		"SettingStartSolderingChar": "S",
 		"SettingStartSleepChar": "R",
 		"SettingStartSleepOffChar": "A",
-		"SettingStartNoneChar": "D",
 		"SettingSensitivityOff": "O",
 		"SettingSensitivityLow": "B",
 		"SettingSensitivityMedium": "M",
@@ -157,7 +158,7 @@
 				"Orientamento",
 				"display"
 			],
-			"desc": "Imposta l'orientamento del display [A: automatico; S: mano sinistra; D: mano destra]"
+			"desc": "Imposta l'orientamento del display [D: mano destra; S: mano sinistra; A: automatico]"
 		},
 		"BoostTemperature": {
 			"text2": [
@@ -218,10 +219,17 @@
 		"QCMaxVoltage": {
 			"text2": [
 				"Voltaggio",
-				"Quick Charge"
+				"QC"
 			],
 			"desc": "Imposta il massimo voltaggio negoziabile con un alimentatore Quick Charge"
 		},
+		"PDNegTimeout": {
+                        "text2": [
+                                "PD",
+                                "timeout"
+                        ],
+                        "desc": "PD negotiation timeout in 100ms steps for compatibility with some QC chargers (0: disabled)"
+                },
 		"PowerLimit": {
 			"text2": [
 				"Limite",
@@ -269,14 +277,14 @@
 				"Blocco",
 				"tasti"
 			],
-			"desc": "Blocca i tasti durante la modalità Saldatura; tieni premuto entrambi per bloccare o sbloccare [D: disattiva; T: blocca Turbo; C: blocco completo]"
+			"desc": "Blocca i tasti durante la modalità Saldatura; tieni premuto entrambi per bloccare o sbloccare [D: disattiva; T: consenti Turbo; C: blocco completo]"
 		},
 		"MinVolCell": {
 			"text2": [
 				"Tensione",
 				"min celle"
 			],
-			"desc": "Modifica il valore di tensione minima \"di scaricamento\" per le celle di una batteria Li-Po [3S: 3,0-3,7 V; 4S/5S/6S: 2,4-3,7 V]"
+			"desc": "Modifica la tensione di minima carica delle celle di una batteria Li-Po [3S: 3,0-3,7 V; 4S/5S/6S: 2,4-3,7 V]"
 		},
 		"AnimLoop": {
 			"text2": [
@@ -305,6 +313,13 @@
 				"impulso"
 			],
 			"desc": "Regola la durata dell'«impulso sveglia» [multipli di 250 ms]"
+		},
+		"LanguageSwitch": {
+			"text2": [
+				"Lingua:",
+				" IT    Italiano"
+			],
+			"desc": ""
 		}
 	}
 }

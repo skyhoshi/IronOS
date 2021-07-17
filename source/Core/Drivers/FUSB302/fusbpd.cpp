@@ -11,8 +11,7 @@
 #include "fusb302b.h"
 #include "int_n.h"
 #include "policy_engine.h"
-#include "protocol_rx.h"
-#include "protocol_tx.h"
+
 #include <fusbpd.h>
 #include <pd.h>
 
@@ -20,8 +19,6 @@ void fusb302_start_processing() {
   /* Initialize the FUSB302B */
   if (fusb_setup()) {
     PolicyEngine::init();
-    ProtocolTransmit::init();
-    ProtocolReceive::init();
     InterruptHandler::init();
   }
 }

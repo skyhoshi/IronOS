@@ -40,20 +40,21 @@
 		],
 		"LockingKeysString": "已锁定",
 		"UnlockingKeysString": "已解除锁定",
-		"WarningKeysLockedString": "!按键锁定!"
+		"WarningKeysLockedString": "!按键锁定!",
+		"WarningThermalRunaway":["Thermal","Runaway"]
 	},
 	"characters": {
 		"SettingRightChar": "右",
 		"SettingLeftChar": "左",
 		"SettingAutoChar": "自",
-		"SettingFastChar": "快",
+		"SettingOffChar": "关",
 		"SettingSlowChar": "慢",
 		"SettingMediumChar": "中",
-		"SettingOffChar": "关",
+		"SettingFastChar": "快",
+		"SettingStartNoneChar": "无",
 		"SettingStartSolderingChar": "焊",
 		"SettingStartSleepChar": "待",
 		"SettingStartSleepOffChar": "室",
-		"SettingStartNoneChar": "无",
 		"SettingSensitivityOff": "关",
 		"SettingSensitivityLow": "低",
 		"SettingSensitivityMedium": "中",
@@ -116,7 +117,7 @@
 		},
 		"DisplayRotation": {
 			"text2": "画面方向",
-			"desc": "自=自动 | 左=使用左手 | 右=使用右手"
+			"desc": "右=使用右手 | 左=使用左手 | 自=自动"
 		},
 		"BoostTemperature": {
 			"text2": "增热温度",
@@ -154,6 +155,13 @@
 			"text2": "QC电压",
 			"desc": "使用QC电源时请求的最高目标电压"
 		},
+		"PDNegTimeout": {
+                        "text2": [
+                                "PD",
+                                "timeout"
+                        ],
+                        "desc": "PD negotiation timeout in 100ms steps for compatibility with some QC chargers (0: disabled)"
+                },
 		"PowerLimit": {
 			"text2": "功率限制",
 			"desc": "限制铬铁可用的最大功率 <W=watt（瓦特）>"
@@ -201,6 +209,10 @@
 		"PowerPulseDuration": {
 			"text2": "电源脉冲时长",
 			"desc": "为保持电源唤醒，每次通电脉冲的时间长度 <x250ms（亳秒）>"
+		},
+		"LanguageSwitch": {
+			"text2": "语言：简体中文",
+			"desc": ""
 		}
 	}
 }

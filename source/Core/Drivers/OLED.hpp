@@ -10,7 +10,7 @@
 #ifndef OLED_HPP_
 #define OLED_HPP_
 #include "Font.h"
-#include "I2C_Wrapper.hpp"
+#include "Model_Config.h"
 #include <BSP.h>
 #include <stdbool.h>
 #include <string.h>
@@ -21,6 +21,15 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
+
+#ifdef OLED_I2CBB
+#include "I2CBB.hpp"
+#define I2C_CLASS I2CBB
+#else
+#define I2C_CLASS FRToSI2C
+#include "I2C_Wrapper.hpp"
+#endif
+
 #define DEVICEADDR_OLED   (0x3c << 1)
 #define OLED_WIDTH        96
 #define OLED_HEIGHT       16
@@ -40,7 +49,7 @@ public:
   static bool isInitDone();
   // Draw the buffer out to the LCD using the DMA Channel
   static void refresh() {
-    FRToSI2C::Transmit(DEVICEADDR_OLED, screenBuffer, FRAMEBUFFER_START + (OLED_WIDTH * 2));
+    I2C_CLASS::Transmit(DEVICEADDR_OLED, screenBuffer, FRAMEBUFFER_START + (OLED_WIDTH * 2));
     // DMA tx time is ~ 20mS Ensure after calling this you delay for at least 25ms
     // or we need to goto double buffering
   }
@@ -79,8 +88,10 @@ public:
   static void drawFilledRect(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, bool clear);
   static void drawHeatSymbol(uint8_t state);
   static void drawScrollIndicator(uint8_t p, uint8_t h); // Draws a scrolling position indicator
+  static void maskScrollIndicatorOnOLED();
   static void transitionSecondaryFramebuffer(bool forwardNavigation);
   static void useSecondaryFramebuffer(bool useSecondary);
+  static void transitionScrollDown();
 
 private:
   static void         drawChar(uint16_t charCode, FontStyle fontStyle); // Draw a character to the current cursor location

@@ -5,9 +5,9 @@
  *      Author: Ben V. Brown
  */
 
-#include "../../configuration.h"
 #include "Translation.h"
 #include "cmsis_os.h"
+#include "configuration.h"
 #include <OLED.hpp>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +29,7 @@ uint8_t            OLED::secondFrameBuffer[OLED_WIDTH * 2];
 /*http://www.displayfuture.com/Display/datasheet/controller/SSD1307.pdf*/
 /*All commands are prefixed with 0x80*/
 /*Data packets are prefixed with 0x40*/
-FRToSI2C::I2C_REG OLED_Setup_Array[] = {
+I2C_CLASS::I2C_REG OLED_Setup_Array[] = {
     /**/
     {0x80, 0xAE, 0}, /*Display off*/
     {0x80, 0xD5, 0}, /*Set display clock divide ratio / osc freq*/
@@ -59,7 +59,38 @@ FRToSI2C::I2C_REG OLED_Setup_Array[] = {
 };
 // Setup based on the SSD1307 and modified for the SSD1306
 
-const uint8_t REFRESH_COMMANDS[17] = {0x80, 0xAF, 0x80, 0x21, 0x80, 0x20, 0x80, 0x7F, 0x80, 0xC0, 0x80, 0x22, 0x80, 0x00, 0x80, 0x01, 0x40};
+const uint8_t REFRESH_COMMANDS[17] = {
+    // Set display ON:
+    0x80,
+    0xAF, // cmd
+
+    // Set column address:
+    //  A[6:0] - Column start address = 0x20
+    //  B[6:0] - Column end address = 0x7F
+    0x80,
+    0x21, // cmd
+    0x80,
+    0x20, // A
+    0x80,
+    0x7F, // B
+
+    // Set COM output scan direction (normal mode, COM0 to COM[N-1])
+    0x80,
+    0xC0,
+
+    // Set page address:
+    //  A[2:0] - Page start address = 0
+    //  B[2:0] - Page end address = 1
+    0x80,
+    0x22, // cmd
+    0x80,
+    0x00, // A
+    0x80,
+    0x01, // B
+
+    // Start of data
+    0x40,
+};
 
 /*
  * Animation timing function that follows a bezier curve.
@@ -89,7 +120,7 @@ void OLED::initialize() {
   // initialisation data to the OLED.
 
   for (int tries = 0; tries < 10; tries++) {
-    if (FRToSI2C::writeRegistersBulk(DEVICEADDR_OLED, OLED_Setup_Array, sizeof(OLED_Setup_Array) / sizeof(OLED_Setup_Array[0]))) {
+    if (I2C_CLASS::writeRegistersBulk(DEVICEADDR_OLED, OLED_Setup_Array, sizeof(OLED_Setup_Array) / sizeof(OLED_Setup_Array[0]))) {
       return;
     }
   }
@@ -113,35 +144,49 @@ void OLED::setFramebuffer(uint8_t *buffer) {
  * Precursor is the command char that is used to select the table.
  */
 void OLED::drawChar(const uint16_t charCode, const FontStyle fontStyle) {
+
   const uint8_t *currentFont;
   static uint8_t fontWidth, fontHeight;
+  uint16_t       index;
   switch (fontStyle) {
-  case FontStyle::SMALL:
-    currentFont = Font_6x8;
-    fontHeight  = 8;
-    fontWidth   = 6;
-    break;
   case FontStyle::EXTRAS:
     currentFont = ExtraFontChars;
+    index       = charCode;
     fontHeight  = 16;
     fontWidth   = 12;
     break;
+  case FontStyle::SMALL:
   case FontStyle::LARGE:
   default:
-    currentFont = Font_12x16;
-    fontHeight  = 16;
-    fontWidth   = 12;
+    if (charCode == '\x01' && cursor_y == 0) { // 0x01 is used as new line char
+      setCursor(0, 8);
+      return;
+    } else if (charCode <= 0x01) {
+      return;
+    }
+    currentFont = nullptr;
+    index       = 0;
+    switch (fontStyle) {
+    case FontStyle::SMALL:
+      fontHeight = 8;
+      fontWidth  = 6;
+      break;
+    case FontStyle::LARGE:
+    default:
+      fontHeight = 16;
+      fontWidth  = 12;
+      break;
+    }
+    for (uint32_t i = 0; i < FontSectionsCount; i++) {
+      const auto &section = FontSections[i];
+      if (charCode >= section.symbol_start && charCode < section.symbol_end) {
+        currentFont = fontStyle == FontStyle::SMALL ? section.font06_start_ptr : section.font12_start_ptr;
+        index       = charCode - section.symbol_start;
+        break;
+      }
+    }
     break;
   }
-
-  if (charCode == '\x01' && cursor_y == 0) { // 0x01 is used as new line char
-    setCursor(0, 8);
-    return;
-  } else if (charCode <= 0x01) {
-    return;
-  }
-  // First index is \x02
-  const uint16_t index       = charCode - 2;
   const uint8_t *charPointer = currentFont + ((fontWidth * (fontHeight / 8)) * index);
   drawArea(cursor_x, cursor_y, fontWidth, fontHeight, charPointer);
   cursor_x += fontWidth;
@@ -164,6 +209,36 @@ void OLED::drawScrollIndicator(uint8_t y, uint8_t height) {
   // the scroll indicator.
   fillArea(OLED_WIDTH - 1, 0, 1, 8, column.strips[0]);
   fillArea(OLED_WIDTH - 1, 8, 1, 8, column.strips[1]);
+}
+
+/**
+ * Masks (removes) the scrolling indicator, i.e. clears the rightmost column
+ * on the screen. This operates directly on the OLED graphics RAM, as this
+ * is intended to be used before calling `OLED::transitionScrollDown()`.
+ */
+void OLED::maskScrollIndicatorOnOLED() {
+  // The right-most column depends on the screen rotation, so just take
+  // it from the screen buffer which is updated by `OLED::setRotation`.
+  uint8_t rightmostColumn = screenBuffer[7];
+  uint8_t maskCommands[]  = {
+      // Set column address:
+      //  A[6:0] - Column start address = rightmost column
+      //  B[6:0] - Column end address = rightmost column
+      0x80,
+      0x21, // cmd
+      0x80,
+      rightmostColumn, // A
+      0x80,
+      rightmostColumn, // B
+
+      // Start of data
+      0x40,
+
+      // Clears two 8px strips
+      0x00,
+      0x00,
+  };
+  I2C_CLASS::Transmit(DEVICEADDR_OLED, maskCommands, sizeof(maskCommands));
 }
 
 /**
@@ -221,6 +296,45 @@ void OLED::useSecondaryFramebuffer(bool useSecondary) {
     setFramebuffer(NULL);
   }
 }
+/**
+ * Plays a transition animation of scrolling downward. Note this does *not*
+ * use the secondary framebuffer.
+ *
+ * This transition relies on the previous screen data already in the OLED
+ * RAM. The caller shall not call `OLED::refresh()` before calling this
+ * method, as doing so will overwrite the previous screen data. The caller
+ * does not need to call `OLED::refresh()` after this function returns.
+ *
+ * **This function blocks until the transition has completed.**
+ */
+void OLED::transitionScrollDown() {
+  // We want to draw the updated framebuffer to the next page downward.
+  uint8_t const pageStart = screenBuffer[13];
+  uint8_t const nextPage  = (pageStart + 2) % 8;
+  // Change page start address:
+  screenBuffer[13] = nextPage;
+  // Change page end address:
+  screenBuffer[15] = nextPage + 1;
+
+  refresh();
+  osDelay(TICKS_100MS / 5);
+
+  uint8_t const startLine = pageStart * 8 + 1;
+  uint8_t const scrollTo  = (pageStart + 2) * 8;
+
+  // Scroll the screen by changing display start line.
+  for (uint8_t current = startLine; current <= scrollTo; current++) {
+    // Set display start line (0x40~0x7F):
+    //  X[5:0] - display start line value
+    uint8_t scrollCommandByte = 0b01000000 | (current & 0b00111111);
+
+    // Also update setup command for "set display start line":
+    OLED_Setup_Array[8].val = scrollCommandByte;
+
+    I2C_CLASS::I2C_RegisterWrite(DEVICEADDR_OLED, 0x80, scrollCommandByte);
+    osDelay(TICKS_100MS / 5);
+  }
+}
 
 void OLED::setRotation(bool leftHanded) {
 #ifdef OLED_FLIP
@@ -238,7 +352,7 @@ void OLED::setRotation(bool leftHanded) {
     OLED_Setup_Array[5].val = 0xC0;
     OLED_Setup_Array[9].val = 0xA0;
   }
-  FRToSI2C::writeRegistersBulk(DEVICEADDR_OLED, OLED_Setup_Array, sizeof(OLED_Setup_Array) / sizeof(OLED_Setup_Array[0]));
+  I2C_CLASS::writeRegistersBulk(DEVICEADDR_OLED, OLED_Setup_Array, sizeof(OLED_Setup_Array) / sizeof(OLED_Setup_Array[0]));
 
   inLeftHandedMode = leftHanded;
 
@@ -348,7 +462,7 @@ void OLED::debugNumber(int32_t val, FontStyle fontStyle) {
 
 void OLED::drawSymbol(uint8_t symbolID) {
   // draw a symbol to the current cursor location
-  drawChar(symbolID + 2, FontStyle::EXTRAS);
+  drawChar(symbolID, FontStyle::EXTRAS);
 }
 
 // Draw an area, but y must be aligned on 0/8 offset

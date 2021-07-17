@@ -10,8 +10,6 @@
 #include <I2CBB.hpp>
 SemaphoreHandle_t I2CBB::I2CSemaphore = NULL;
 StaticSemaphore_t I2CBB::xSemaphoreBuffer;
-SemaphoreHandle_t I2CBB::I2CSemaphore2 = NULL;
-StaticSemaphore_t I2CBB::xSemaphoreBuffer2;
 void              I2CBB::init() {
   // Set GPIO's to output open drain
   GPIO_InitTypeDef GPIO_InitStruct;
@@ -28,10 +26,8 @@ void              I2CBB::init() {
   HAL_GPIO_Init(SCL2_GPIO_Port, &GPIO_InitStruct);
   SOFT_SDA_HIGH();
   SOFT_SCL_HIGH();
-  I2CSemaphore  = xSemaphoreCreateMutexStatic(&xSemaphoreBuffer);
-  I2CSemaphore2 = xSemaphoreCreateMutexStatic(&xSemaphoreBuffer2);
+  I2CSemaphore = xSemaphoreCreateMutexStatic(&xSemaphoreBuffer);
   unlock();
-  unlock2();
 }
 
 bool I2CBB::probe(uint8_t address) {
@@ -278,6 +274,14 @@ bool I2CBB::lock() {
   return a;
 }
 
+bool I2CBB::I2C_RegisterWrite(uint8_t address, uint8_t reg, uint8_t data) { return Mem_Write(address, reg, &data, 1); }
+
+uint8_t I2CBB::I2C_RegisterRead(uint8_t address, uint8_t reg) {
+  uint8_t temp = 0;
+  Mem_Read(address, reg, &temp, 1);
+  return temp;
+}
+
 void I2CBB::write_bit(uint8_t val) {
   if (val) {
     SOFT_SDA_HIGH();
@@ -291,14 +295,14 @@ void I2CBB::write_bit(uint8_t val) {
   SOFT_SCL_LOW();
 }
 
-void I2CBB::unlock2() { xSemaphoreGive(I2CSemaphore2); }
-
-bool I2CBB::lock2() {
-  if (I2CSemaphore2 == NULL) {
-    asm("bkpt");
+bool I2CBB::writeRegistersBulk(const uint8_t address, const I2C_REG *registers, const uint8_t registersLength) {
+  for (int index = 0; index < registersLength; index++) {
+    if (!I2C_RegisterWrite(address, registers[index].reg, registers[index].val)) {
+      return false;
+    }
+    if (registers[index].pause_ms)
+      delay_ms(registers[index].pause_ms);
   }
-  bool a = xSemaphoreTake(I2CSemaphore2, (TickType_t)500) == pdTRUE;
-
-  return a;
+  return true;
 }
 #endif
